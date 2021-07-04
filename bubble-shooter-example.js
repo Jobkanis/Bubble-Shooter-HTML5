@@ -33,14 +33,24 @@ window.onload = function() {
         resetAngle: lbound,
         angle: lbound,
         
-        testInformation: {
-            bestAngle: 40
-        }
+        roundInformation: []
     };
     
-    function simulateClick() {
-        console.log(simulator.angle);
+    function getBestAngle() {
+        var bestAngle = -1;
+        var bestClusterSize = -1;
+        for (roundInfo in simulator.roundInformation) {
+            console.log(roundInfo.angle);
+            if (bestClusterSize == -1 || roundInfo.clusterSize > bestClusterSize ){
+                bestAngle = roundInfo.angle;
+                bestClusterSize = roundInfo.clusterSize;
+            }
+        }
+        console.log(bestAngle);
+        return bestAngle;
+    }
 
+    function simulateClick() {
         if (simulator.angle >= simulator.lbound && simulator.angle <= simulator.ubound) {
             // shoot fake bubble if allowed
             simulateFakeBubble();
@@ -49,11 +59,12 @@ window.onload = function() {
             // shoot real bubble
             simulateRealBubble();
             simulator.angle = simulator.resetAngle;
+            simulator.roundInformation = [];
         }
     }
 
     function simulateFakeBubble() {
-        Wplayer.bubble.type = bubbletypes.fake;
+        player.bubble.type = bubbletypes.fake;
         player.bubble.speed = 10000000;
         player.angle = simulator.angle;
         shootBubble();
@@ -62,7 +73,7 @@ window.onload = function() {
     function simulateRealBubble() {
         player.bubble.type = bubbletypes.real;
         player.bubble.speed = 1000;
-        player.angle = simulator.testInformation.bestAngle;
+        player.angle = getBestAngle();
         shootBubble();
     }
 
@@ -110,7 +121,6 @@ window.onload = function() {
 
     // Player
     var player = {
-        
         x: 0,
         y: 0,
         angle: 0,
@@ -491,22 +501,23 @@ window.onload = function() {
             gridpos.y = level.rows - 1;
         }
 
-        if (player.bubble.type == bubbletypes.real){
-            // Check if the tile is empty
-            var addtile = false;
-            if (level.tiles[gridpos.x][gridpos.y].type != -1) {
-                // Tile is not empty, shift the new tile downwards
-                for (var newrow=gridpos.y+1; newrow<level.rows; newrow++) {
-                    if (level.tiles[gridpos.x][newrow].type == -1) {
-                        gridpos.y = newrow;
-                        addtile = true;
-                        break;
-                    }
-                }
-            } else {
-                addtile = true;
-            }
+        // Check if the tile is empty
 
+        var addtile = false;
+        if (level.tiles[gridpos.x][gridpos.y].type != -1) {
+            // Tile is not empty, shift the new tile downwards
+            for (var newrow=gridpos.y+1; newrow<level.rows; newrow++) {
+                if (level.tiles[gridpos.x][newrow].type == -1) {
+                    gridpos.y = newrow;
+                    addtile = true;
+                    break;
+                }
+            }
+        } else {
+            addtile = true;
+        }
+        
+        if (player.bubble.type == bubbletypes.real){
             // Add the tile to the grid
             if (addtile) {
                 // Hide the player bubble
@@ -529,6 +540,7 @@ window.onload = function() {
                     return;
                 }
             }
+            
             // No clusters found
             turncounter++;
             if (turncounter >= 5) {
@@ -541,6 +553,14 @@ window.onload = function() {
                     return;
                 }
             }
+        } else {
+            level.tiles[gridpos.x][gridpos.y].type = player.bubble.tiletype;
+            simulator.roundInformation.push({
+                angle: simulator.angle,
+                isGameover: checkGameOver(),
+                clusterSize: findCluster(gridpos.x, gridpos.y, true, true, false).length                
+            })
+            level.tiles[gridpos.x][gridpos.y].type = -1;
         }
         
         // Next bubble
