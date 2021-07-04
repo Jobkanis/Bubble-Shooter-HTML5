@@ -20,6 +20,22 @@
 
 // The function gets called when the window is fully loaded
 window.onload = function() {
+    // My part!
+
+    // Mouse boundaries
+    var lbound = 8;
+    var ubound = 172;
+
+    simulatedDegree = lbound
+    function simulateClick() {
+        player.angle = simulatedDegree;
+        simulatedDegree += 10;
+        shootBubble();
+    }
+
+
+
+
     // Get the canvas and context
     var canvas = document.getElementById("viewport");
     var context = canvas.getContext("2d");
@@ -59,8 +75,12 @@ window.onload = function() {
         this.processed = false;
     };
     
+    var bubbletypes = { real: 0, fake: 1};
+
     // Player
     var player = {
+        bubbletype: bubbletypes.fake,
+        
         x: 0,
         y: 0,
         angle: 0,
@@ -74,6 +94,15 @@ window.onload = function() {
                     tiletype: 0,
                     visible: false
                 },
+        fakebubble: {
+            x: 0,
+            y: 0,
+            angle: 0,
+            speed: 1000000,
+            dropspeed: 900,
+            tiletype: 0,
+            visible: false
+        },
         nextbubble: {
                         x: 0,
                         y: 0,
@@ -186,7 +215,7 @@ window.onload = function() {
         // Enter main loop
         main(0);
     }
-    
+
     // Main loop
     function main(tframe) {
         // Request animation frames
@@ -236,6 +265,7 @@ window.onload = function() {
         
         if (gamestate == gamestates.ready) {
             // Game is ready for player input
+            simulateClick();
         } else if (gamestate == gamestates.shootbubble) {
             // Bubble is moving
             stateShootBubble(dt);
@@ -254,7 +284,7 @@ window.onload = function() {
     
     function stateShootBubble(dt) {
         // Bubble is moving
-        
+
         // Move the bubble in the direction of the mouse
         player.bubble.x += dt * player.bubble.speed * Math.cos(degToRad(player.bubble.angle));
         player.bubble.y += dt * player.bubble.speed * -1*Math.sin(degToRad(player.bubble.angle));
@@ -269,12 +299,12 @@ window.onload = function() {
             player.bubble.angle = 180 - player.bubble.angle;
             player.bubble.x = level.x + level.width - level.tilewidth;
         }
- 
+
         // Collisions with the top of the level
         if (player.bubble.y <= level.y) {
             // Top collision
-            player.bubble.y = level.y;
             snapBubble();
+            player.bubble.y = level.y;
             return;
         }
         
@@ -291,11 +321,11 @@ window.onload = function() {
                 // Check for intersections
                 var coord = getTileCoordinate(i, j);
                 if (circleIntersection(player.bubble.x + level.tilewidth/2,
-                                       player.bubble.y + level.tileheight/2,
-                                       level.radius,
-                                       coord.tilex + level.tilewidth/2,
-                                       coord.tiley + level.tileheight/2,
-                                       level.radius)) {
+                                        player.bubble.y + level.tileheight/2,
+                                        level.radius,
+                                        coord.tilex + level.tilewidth/2,
+                                        coord.tiley + level.tileheight/2,
+                                        level.radius)) {
                                         
                     // Intersection with a level bubble
                     snapBubble();
@@ -438,57 +468,58 @@ window.onload = function() {
             gridpos.y = level.rows - 1;
         }
 
-        // Check if the tile is empty
-        var addtile = false;
-        if (level.tiles[gridpos.x][gridpos.y].type != -1) {
-            // Tile is not empty, shift the new tile downwards
-            for (var newrow=gridpos.y+1; newrow<level.rows; newrow++) {
-                if (level.tiles[gridpos.x][newrow].type == -1) {
-                    gridpos.y = newrow;
-                    addtile = true;
-                    break;
+        if (player.bubbletype == bubbletypes.real){
+            // Check if the tile is empty
+            var addtile = false;
+            if (level.tiles[gridpos.x][gridpos.y].type != -1) {
+                // Tile is not empty, shift the new tile downwards
+                for (var newrow=gridpos.y+1; newrow<level.rows; newrow++) {
+                    if (level.tiles[gridpos.x][newrow].type == -1) {
+                        gridpos.y = newrow;
+                        addtile = true;
+                        break;
+                    }
+                }
+            } else {
+                addtile = true;
+            }
+
+            // Add the tile to the grid
+            if (addtile) {
+                // Hide the player bubble
+                player.bubble.visible = false;
+            
+                // Set the tile
+                level.tiles[gridpos.x][gridpos.y].type = player.bubble.tiletype;
+                
+                // Check for game over
+                if (checkGameOver()) {
+                    return;
+                }
+                
+                // Find clusters
+                cluster = findCluster(gridpos.x, gridpos.y, true, true, false);
+                
+                if (cluster.length >= 3) {
+                    // Remove the cluster
+                    setGameState(gamestates.removecluster);
+                    return;
                 }
             }
-        } else {
-            addtile = true;
-        }
-
-        // Add the tile to the grid
-        if (addtile) {
-            // Hide the player bubble
-            player.bubble.visible = false;
-        
-            // Set the tile
-            level.tiles[gridpos.x][gridpos.y].type = player.bubble.tiletype;
-            
-            // Check for game over
-            if (checkGameOver()) {
-                return;
-            }
-            
-            // Find clusters
-            cluster = findCluster(gridpos.x, gridpos.y, true, true, false);
-            
-            if (cluster.length >= 3) {
-                // Remove the cluster
-                setGameState(gamestates.removecluster);
-                return;
+            // No clusters found
+            turncounter++;
+            if (turncounter >= 5) {
+                // Add a row of bubbles
+                addBubbles();
+                turncounter = 0;
+                rowoffset = (rowoffset + 1) % 2;
+                
+                if (checkGameOver()) {
+                    return;
+                }
             }
         }
         
-        // No clusters found
-        turncounter++;
-        if (turncounter >= 5) {
-            // Add a row of bubbles
-            addBubbles();
-            turncounter = 0;
-            rowoffset = (rowoffset + 1) % 2;
-            
-            if (checkGameOver()) {
-                return;
-            }
-        }
-
         // Next bubble
         nextBubble();
         setGameState(gamestates.ready);
@@ -1019,8 +1050,6 @@ window.onload = function() {
         }
 
         // Restrict angle to 8, 172 degrees
-        var lbound = 8;
-        var ubound = 172;
         if (mouseangle > 90 && mouseangle < 270) {
             // Left
             if (mouseangle > ubound) {
