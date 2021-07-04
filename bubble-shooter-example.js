@@ -26,14 +26,45 @@ window.onload = function() {
     var lbound = 8;
     var ubound = 172;
 
-    simulatedDegree = lbound
+    var simulator = {
+        lbound: lbound,
+        ubound: ubound,
+
+        resetAngle: lbound,
+        angle: lbound,
+        
+        testInformation: {
+            bestAngle: 40
+        }
+    };
+    
     function simulateClick() {
-        player.angle = simulatedDegree;
-        simulatedDegree += 10;
+        console.log(simulator.angle);
+
+        if (simulator.angle >= simulator.lbound && simulator.angle <= simulator.ubound) {
+            // shoot fake bubble if allowed
+            simulateFakeBubble();
+            simulator.angle++;
+        } else {
+            // shoot real bubble
+            simulateRealBubble();
+            simulator.angle = simulator.resetAngle;
+        }
+    }
+
+    function simulateFakeBubble() {
+        Wplayer.bubble.type = bubbletypes.fake;
+        player.bubble.speed = 10000000;
+        player.angle = simulator.angle;
         shootBubble();
     }
 
-
+    function simulateRealBubble() {
+        player.bubble.type = bubbletypes.real;
+        player.bubble.speed = 1000;
+        player.angle = simulator.testInformation.bestAngle;
+        shootBubble();
+    }
 
 
     // Get the canvas and context
@@ -79,30 +110,22 @@ window.onload = function() {
 
     // Player
     var player = {
-        bubbletype: bubbletypes.fake,
         
         x: 0,
         y: 0,
         angle: 0,
         tiletype: 0,
         bubble: {
+                    type: bubbletypes.real,
                     x: 0,
                     y: 0,
                     angle: 0,
                     speed: 1000,
+                    fakespeed: 10000,
                     dropspeed: 900,
                     tiletype: 0,
                     visible: false
                 },
-        fakebubble: {
-            x: 0,
-            y: 0,
-            angle: 0,
-            speed: 1000000,
-            dropspeed: 900,
-            tiletype: 0,
-            visible: false
-        },
         nextbubble: {
                         x: 0,
                         y: 0,
@@ -468,7 +491,7 @@ window.onload = function() {
             gridpos.y = level.rows - 1;
         }
 
-        if (player.bubbletype == bubbletypes.real){
+        if (player.bubble.type == bubbletypes.real){
             // Check if the tile is empty
             var addtile = false;
             if (level.tiles[gridpos.x][gridpos.y].type != -1) {
