@@ -23,56 +23,120 @@ window.onload = function() {
     // My part!
 
     // Mouse boundaries
+    // ----->  SIMULATE BULLETS
+
     var lbound = 8;
     var ubound = 172;
 
     var simulator = {
-        lbound: lbound,
-        ubound: ubound,
-
-        resetAngle: lbound,
-        angle: lbound,
+        angleOrder: getAngleOrder(),
+        angleIndex: 0,
         
+        foundAngle: -1,
         roundInformation: []
     };
+
+    function getCurrentAngle() {
+        return simulator.angleOrder[simulator.angleIndex];
+    }
+
+    function addRoundInformation(angle, clusterSize, isGameover) {
+        if (clusterSize >= 3) {
+            simulator.foundAngle = angle;
+        }
+        var roundInformation = {
+            angle: angle,
+            isGameover: isGameover,
+            clusterSize: clusterSize
+        }
+
+        simulator.roundInformation.push(roundInformation)
+    }
     
-    function getBestAngle() {
-        var bestAngle = -1;
-        var bestClusterSize = -1;
-        for (roundInfo in simulator.roundInformation) {
-            console.log(roundInfo.angle);
-            if (bestClusterSize == -1 || roundInfo.clusterSize > bestClusterSize ){
-                bestAngle = roundInfo.angle;
-                bestClusterSize = roundInfo.clusterSize;
+    function getAngleOrder() {
+        var min = lbound;
+        var max = ubound + 1;
+
+        var order = [];
+        var angleOrderNumeral = range(min, max);
+
+        function addToOrder(number) {
+            const valueIndex = angleOrderNumeral.indexOf(number);
+            if (valueIndex > -1) {
+                order.push(number);
+                angleOrderNumeral.splice(valueIndex, 1);
+            } else {
+                // skipping
             }
         }
-        console.log(bestAngle);
-        return bestAngle;
+
+        // 45 - 135 in steps of 5
+        for (v of range(45, 135).filter(function(v, _, _){ return v % 5 == 0; })){
+            addToOrder(v);
+        }
+        // all in steps of 5
+        for (v of range(min, max).filter(function(v, _, _){ return v % 5 == 0; })){
+            addToOrder(v);
+        }
+
+        // all in steps of 3
+        for (v of range(min, max).filter(function(v, _, _){ return v % 3 == 0; })){
+            addToOrder(v);
+        }
+
+        // add remaining 45-135
+        for (v of range(45, 135)){
+            addToOrder(v);
+        }
+
+        // add all remaining angles
+        order = order.concat(angleOrderNumeral);
+        return order;
+    }
+
+    function getBestAngle() {
+        if (simulator.foundAngle != -1) { // if we already found an angle
+            return simulator.foundAngle;
+        } else {
+            // else search for one
+            var bestAngle = randRange(lbound, ubound + 1); // random angle as default
+            var bestClusterSize = 1;
+            for (roundInfo of simulator.roundInformation) {
+                if (roundInfo.clusterSize > bestClusterSize ){
+                    bestAngle = roundInfo.angle;
+                    bestClusterSize = roundInfo.clusterSize;
+                }
+            }
+            return bestAngle;
+        }
     }
 
     function simulateClick() {
-        if (simulator.angle >= simulator.lbound && simulator.angle <= simulator.ubound) {
+        if (simulator.foundAngle == -1 && simulator.angleIndex < simulator.angleOrder.length) {
             // shoot fake bubble if allowed
             simulateFakeBubble();
-            simulator.angle++;
+            simulator.angleIndex++;
         } else {
             // shoot real bubble
             simulateRealBubble();
-            simulator.angle = simulator.resetAngle;
+            simulator.angleIndex = 0;
             simulator.roundInformation = [];
+            simulator.foundAngle = -1;
         }
     }
 
     function simulateFakeBubble() {
+        player.bubble.visible = true;
         player.bubble.type = bubbletypes.fake;
-        player.bubble.speed = 10000000;
-        player.angle = simulator.angle;
+        player.bubble.speed = 5000;
+        player.angle = getCurrentAngle();
         shootBubble();
     }
 
     function simulateRealBubble() {
+        player.bubble.visible = true;
         player.bubble.type = bubbletypes.real;
-        player.bubble.speed = 1000;
+        player.bubble.speed = 5000;
         player.angle = getBestAngle();
         shootBubble();
     }
@@ -218,6 +282,7 @@ window.onload = function() {
         bubbleimage = images[0];
     
         // Add mouse events
+        // ----->  DISABLE MOUSE INPUT 
         canvas.addEventListener("mousemove", onMouseMove);
         canvas.addEventListener("mousedown", onMouseDown);
         
@@ -554,13 +619,18 @@ window.onload = function() {
                 }
             }
         } else {
+            
+            // -----> Gathering data for fake bullets 
+            var prevtype = level.tiles[gridpos.x][gridpos.y].type
             level.tiles[gridpos.x][gridpos.y].type = player.bubble.tiletype;
-            simulator.roundInformation.push({
-                angle: simulator.angle,
-                isGameover: checkGameOver(),
-                clusterSize: findCluster(gridpos.x, gridpos.y, true, true, false).length                
-            })
-            level.tiles[gridpos.x][gridpos.y].type = -1;
+
+            var angle = player.angle;
+            var isGameover = checkGameOver()
+            var clusterSize = findCluster(gridpos.x, gridpos.y, true, true, false).length;
+
+            addRoundInformation(angle, clusterSize, isGameover);
+
+            level.tiles[gridpos.x][gridpos.y].type = prevtype;
         }
         
         // Next bubble
@@ -1012,17 +1082,17 @@ window.onload = function() {
     // Create a random bubble for the player
     function nextBubble() {
         // Set the current bubble
-        player.tiletype = player.nextbubble.tiletype;
-        player.bubble.tiletype = player.nextbubble.tiletype;
         player.bubble.x = player.x;
         player.bubble.y = player.y;
-        player.bubble.visible = true;
-        
-        // Get a random type from the existing colors
-        var nextcolor = getExistingColor();
-        
-        // Set the next bubble
-        player.nextbubble.tiletype = nextcolor;
+        // ----->  Only go to next color if it was a real 
+        if (player.bubble.type == bubbletypes.real) {
+            player.tiletype = player.nextbubble.tiletype;
+            player.bubble.tiletype = player.nextbubble.tiletype;
+
+            var nextcolor = getExistingColor();        
+            player.nextbubble.tiletype = nextcolor;
+            player.bubble.visible = true;
+        }
     }
     
     // Get a random existing color
@@ -1130,6 +1200,12 @@ window.onload = function() {
         };
     }
     
+    // -----> RANGE function 
+    function range(start, end) {
+        return Array.apply(0, Array(end - start))
+            .map((element, index) => index + start);
+    }
+
     // Call init to start the game
     init();
 };
